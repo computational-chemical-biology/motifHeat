@@ -4,14 +4,18 @@
 \alias{format_heatmap}
 \title{Wrapper to format heamap from defined GNPS-MZmine inputs}
 \usage{
-format_heatmap(featureTable, metadataTable, selectField = NULL,
-  selectValue = NULL, factorColList = list(),
+format_heatmap(featureTable, metadataTable, norm = FALSE, labCol = c(),
+  selectField = NULL, selectValue = NULL, factorColList = list(),
   colorScale = rev(heat.colors(75)), main = "", ...)
 }
 \arguments{
 \item{featureTable}{MZmine format feature table.}
 
 \item{metadataTable}{qiime2 format metadata table.}
+
+\item{norm}{perform TIC normalization. Default is FALSE.}
+
+\item{labCol}{two colunms data.frame with feature indexes and labels for heatmap column. Default is c().}
 
 \item{selectField}{metadata field to subselect. Default is NULL.}
 
@@ -24,7 +28,7 @@ format_heatmap(featureTable, metadataTable, selectField = NULL,
 \item{main}{title for heatmap plot. Default is ''.}
 }
 \value{
-heatmap list.
+heatmap and color list.
 }
 \description{
 This function allows you to subset tables, create multiple colored bars for samples, change color scales, etc.

@@ -1,0 +1,141 @@
+---
+title: "motif_heatmap"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## motifHeat
+
+This is a short tutorial to introduce motifHeat, associating hierarchical clustering to motif detection.
+
+First we need to install the dependencies
+
+```{r}
+packageList <- c("devtools", "dendextend")
+newPackages <- packageList[!(packageList %in% installed.packages()[,"Package"])]
+if(length(newPackages)) install.packages(newPackages)
+
+library("devtools", "dendextend")
+
+if (!require("motifHeat")) {
+    install_github("computational-chemical-biology/motifHeat")
+}
+```
+
+## Load data from GNPS
+
+You need your GNPS task id and optionally ms2lda:
+
+```{r}
+dlist <- access_gnps('fe23366fb6e34bee84ac9c1d2c17f5ba',            '7d7e7ed46a954dcbbf3b537e05c9792f')
+```
+
+## Recover most frequent motifs
+
+Display motifs annotated:
+```{r}
+head(dlist$motifs_in_scans)
+```
+
+Count the motifs and display the most frequent
+
+```{r}
+motif_count <- table(dlist$motifs_in_scans[,'motif'])
+motif_count[order(motif_count, decreasing=TRUE)][1:5]
+```
+
+Select cluster indexes associated to most frequent
+
+```{r}
+smotif <- dlist$motifs_in_scans[dlist$motifs_in_scans[,'motif'] %in% c('motif_445'), c('scan', 'motif')]
+head(smotif)
+```
+
+## Format color for sample classes
+
+factorCorLis is a nested list with one color for each level of a factor:
+```{r}
+factorColList <- list(list(colors=c("darkorchid","darkred"), factor='Extraction'), list(colors=c("green", "darkgreen"), factor='Trimethoprim'))
+```
+
+
+## Plot a basic heatmap
+
+You can also embed plots, for example:
+
+```{r}
+tab <- dlist$features
+meta <- dlist$metadata
+h <- format_heatmap(tab, meta, selectField='StrainName', selectValue='Burkholderia dolosa AU0645  Genomovar type VI', factorColList=factorColList)
+```
+We can also add motif labels to the features in the heatmap:
+
+```{r}
+h <- format_heatmap(tab, meta, selectField='StrainName', labCol=smotif, selectValue='Burkholderia dolosa AU0645  Genomovar type VI', factorColList=factorColList)
+```
+
+## Recover data from heatmap's hierarchical clustering
+
+The heatmap result contains hierarchical clustering from samples and features. We can associate the sample grouping to colors
+```{r}
+# needs preprocessing
+head(cbind(t(h$colors), colnames(tab)[grep('Peak area', colnames(tab))])[h$heatmap$rowInd,])
+
+```
+
+Create hclut object from dendrogram and plot the cluters with arbitrary number of groups
+
+```{r}
+hc <- as.hclust(h$heatmap$colDendrogram)
+plot(hc)
+plot(hc, labels=FALSE)
+rect.hclust(hc, 6)
+```
+
+Change the criteria to hight and record grouping
+
+```{r}
+plot(hc, labels=FALSE)
+rect.hclust(hc, h=3000)
+hcgrp <- cutree(hc, h=3000)
+```
+
+Use grouping to create colored bars
+
+```{r}
+dend <- h$heatmap$colDendrogram
+dend %>% plot 
+colored_bars(colors = hcgrp, dend = dend) 
+```
+
+## Associate hierachical clustering to network component and motif frequency
+
+```{r}
+ms2lda <- cbind(c(ms2lda_edges[, 'CLUSTERID1'], ms2lda_edges[, 'CLUSTERID2']), rep(ms2lda_edges[, 'ComponentIndex'], 2))
+ms2lda <- unique(ms2lda)
+colnames(ms2lda) <- c('CLUSTERID','ComponentIndex')
+ms2lda <- ms2lda[ms2lda[,2]!=-1,]
+ms2lda <- merge(ms2lda, dlist$ms2lda_nodes[,c('scans', 'motif')], by.x='CLUSTERID', by.y='scans')
+tgrp <- data.frame(CLUSTERID=as.numeric(names(hcgrp)), HCA_GRP=hcgrp) 
+ms2lda <- merge(ms2lda, tgrp, by.x='CLUSTERID', by.y='CLUSTERID')
+comp2grp <- tapply(ms2lda[,4], ms2lda[,2], function(x) c(names(table(x))[which.max(table(x))], max(table(x))/length(x), length(x)))
+
+tcomp2grp <- do.call(rbind, comp2grp)
+tcomp2grp <- cbind(names(comp2grp), tcomp2grp)
+colnames(tcomp2grp) <- c('ComponentIndex', 'HCA_GRP', 'Max_Proportion', 'Total_Nodes')
+tcomp2grp <- tcomp2grp[order(as.numeric(tcomp2grp[,4]), decreasing=TRUE),]
+mfmotif <- tapply(ms2lda[,3], ms2lda[,2], function(x) names(which.max(table(unlist(sapply(x, strsplit, ',')))))) 
+mfmotif[unlist(lapply(mfmotif, is.null))] <- '' 
+tcomp2grp <- cbind(tcomp2grp, '') 
+colnames(tcomp2grp)[5] <- 'Most_Freq_Motif' 
+tcomp2grp[,5] <- unlist(mfmotif[tcomp2grp[,1]]) 
+ulinks <- unique(dlist$motifs_in_scans[,c('motif', 'motifdb_url')]) 
+ulinks <- as.matrix(ulinks) 
+
+ids <- match(tcomp2grp[,5], ulinks[,1])
+tcomp2grp[!is.na(ids), 6] <- ulinks[ids[!is.na(ids)],2]
+
+```
