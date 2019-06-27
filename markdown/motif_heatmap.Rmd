@@ -1,6 +1,6 @@
 ---
 title: "motif_heatmap"
-output: html_document
+output: rmarkdown::github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -18,10 +18,13 @@ packageList <- c("devtools", "dendextend")
 newPackages <- packageList[!(packageList %in% installed.packages()[,"Package"])]
 if(length(newPackages)) install.packages(newPackages)
 
-library("devtools", "dendextend")
+library("devtools")
+library("dendextend")
 
 if (!require("motifHeat")) {
     install_github("computational-chemical-biology/motifHeat")
+} else {
+    library("motifHeat")
 }
 ```
 
@@ -113,14 +116,26 @@ colored_bars(colors = hcgrp, dend = dend)
 
 ## Associate hierachical clustering to network component and motif frequency
 
+Create a table with all component indexes and associated cluster ids:
 ```{r}
-ms2lda <- cbind(c(ms2lda_edges[, 'CLUSTERID1'], ms2lda_edges[, 'CLUSTERID2']), rep(ms2lda_edges[, 'ComponentIndex'], 2))
+ms2lda <- cbind(c(dlist$ms2lda_edges[, 'CLUSTERID1'], dlist$ms2lda_edges[, 'CLUSTERID2']), rep(dlist$ms2lda_edges[, 'ComponentIndex'], 2))
 ms2lda <- unique(ms2lda)
 colnames(ms2lda) <- c('CLUSTERID','ComponentIndex')
 ms2lda <- ms2lda[ms2lda[,2]!=-1,]
+head(ms2lda)
+
+```
+
+Merge component index and moftif tables
+```{r}
 ms2lda <- merge(ms2lda, dlist$ms2lda_nodes[,c('scans', 'motif')], by.x='CLUSTERID', by.y='scans')
 tgrp <- data.frame(CLUSTERID=as.numeric(names(hcgrp)), HCA_GRP=hcgrp) 
 ms2lda <- merge(ms2lda, tgrp, by.x='CLUSTERID', by.y='CLUSTERID')
+head(ms2lda)
+```
+
+Obtain the proportion of nodes from each connected component that are associated to the same group detectep by hierarchical clustering
+```{r}
 comp2grp <- tapply(ms2lda[,4], ms2lda[,2], function(x) c(names(table(x))[which.max(table(x))], max(table(x))/length(x), length(x)))
 
 tcomp2grp <- do.call(rbind, comp2grp)
@@ -134,8 +149,9 @@ colnames(tcomp2grp)[5] <- 'Most_Freq_Motif'
 tcomp2grp[,5] <- unlist(mfmotif[tcomp2grp[,1]]) 
 ulinks <- unique(dlist$motifs_in_scans[,c('motif', 'motifdb_url')]) 
 ulinks <- as.matrix(ulinks) 
-
+tcomp2grp <- cbind(tcomp2grp, '')
 ids <- match(tcomp2grp[,5], ulinks[,1])
 tcomp2grp[!is.na(ids), 6] <- ulinks[ids[!is.na(ids)],2]
+head(tcomp2grp)
 
 ```

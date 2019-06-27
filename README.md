@@ -5,7 +5,7 @@ Wrapper to format heamap from defined [GNPS-MZmine](https://gnps.ucsd.edu/) inpu
 ### Table of contents
 
 * [Installation](#installation)
-* [Run motifHeat](#run_motifheat)
+* [Run motifHeat](#run_motifHeat)
 * [License](#license)
 
 ## Installation 
