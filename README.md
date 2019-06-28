@@ -39,4 +39,4 @@ You should be able to generate the following image
 <img src="img/example_heatmap.png"/>
 
 ## License
-This repository is available under the following license https://github.com/computational-chemical-biology/motifHeat/LICENCE
+This repository is available under the following [license](https://github.com/computational-chemical-biology/motifHeat/blob/master/LICENSE).
