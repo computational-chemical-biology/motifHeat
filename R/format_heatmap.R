@@ -21,15 +21,15 @@
 format_heatmap <- function(featureTable, metadataTable, norm=FALSE, labCol=c(), selectField=NULL, selectValue=NULL,
 			   factorColList=list(), colorScale=rev(heat.colors(75)), main='', ...){ 
     if (!is.null(selectField)) {
-        meta2 <- meta[meta[,selectField]==selectValue,] 
+        meta2 <- metadataTable[metadataTable[,selectField]==selectValue,] 
     } else {
-        meta2 <- meta
+        meta2 <- metadataTable
     }
     
     # Format MZmine feature table
-    tab2 <- tab[, grep('Peak area', colnames(tab))] 
+    tab2 <- featureTable[, grep('Peak area', colnames(featureTable))] 
     tab2 <- t(tab2) 
-    rownames(tab2) <- sub(' Peak area$', '', rownames(tab2)) 
+    rownames(tab2) <- sub(' filtered Peak area$| Peak area$', '', rownames(tab2)) 
     colnames(tab2) <- tab[,'row ID']  
     # order samples according to metadata
     tab2 <- tab2[meta2[,1],] 
@@ -54,7 +54,7 @@ format_heatmap <- function(featureTable, metadataTable, norm=FALSE, labCol=c(), 
     colList <- list()
     if (length(factorColList)) { 
         fnames <- c()
-	for(i in 1:length(factorColList)) {
+	      for(i in 1:length(factorColList)) {
             colList[[i]] <- factorColList[[i]]$colors 
             names(colList[[i]]) <- unique(meta2[, factorColList[[i]]$factor])
             colList[[i]] <- colList[[i]][meta2[, factorColList[[i]]$factor]]

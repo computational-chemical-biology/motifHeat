@@ -33,7 +33,7 @@ if (!require("motifHeat")) {
 You need your GNPS task id and optionally ms2lda:
 
 ```{r}
-dlist <- access_gnps('fe23366fb6e34bee84ac9c1d2c17f5ba',            '7d7e7ed46a954dcbbf3b537e05c9792f')
+dlist <- access_gnps('60e8f7096e994d5c9717d471445f8bfe',            '56f089a1772340a0aa2978d41478e3e4')
 ```
 
 ## Recover most frequent motifs
@@ -53,7 +53,7 @@ motif_count[order(motif_count, decreasing=TRUE)][1:5]
 Select cluster indexes associated to most frequent
 
 ```{r}
-smotif <- dlist$motifs_in_scans[dlist$motifs_in_scans[,'motif'] %in% c('motif_445'), c('scan', 'motif')]
+smotif <- dlist$motifs_in_scans[dlist$motifs_in_scans[,'motif'] %in% c('motif_480'), c('scan', 'motif')]
 head(smotif)
 ```
 
@@ -79,7 +79,40 @@ We can also add motif labels to the features in the heatmap:
 ```{r}
 h <- format_heatmap(tab, meta, selectField='StrainName', labCol=smotif, selectValue='Burkholderia dolosa AU0645  Genomovar type VI', factorColList=factorColList)
 ```
+Subselect metadata and repeat heatmap:
 
+```{r}
+meta2 <- meta[meta$TimePoint=='48h' & grepl('EA', meta$Extraction) & grepl('Burkholderia', meta$StrainName),]
+factorColList <- list(list(colors=rainbow(length(unique(meta2$StrainName))), factor='StrainName'))
+h <- format_heatmap(tab, meta2, labCol=smotif, factorColList=factorColList)
+```
+Changing color scale:
+```{r}
+library("gplots")
+h <- format_heatmap(tab, meta2, labCol=smotif, factorColList=factorColList, colorScale = redgreen(75))
+```
+Adding normalization:
+```{r}
+h <- format_heatmap(tab, meta2, labCol=smotif, norm=TRUE, factorColList=factorColList, colorScale = redgreen(75))
+```
+Creating a pdf:
+```{r echo=FALSE}
+pdf('ea_48h_strains.pdf')
+h <- format_heatmap(tab, meta2, labCol=smotif, factorColList=factorColList, main='Color 1 not Normalized')
+h <- format_heatmap(tab, meta2, labCol=smotif, factorColList=factorColList, colorScale = redgreen(75), main='Color 2 not Normalized')
+h <- format_heatmap(tab, meta2, labCol=smotif, norm=TRUE, factorColList=factorColList, colorScale = redgreen(75), main='Color 2 Normalized')
+dev.off()
+```
+Repeating the process for other condition:
+```{r echo=FALSE}
+meta2 <- meta[meta$TimePoint=='48h' & grepl('SPE', meta$Extraction) & grepl('Burkholderia', meta$StrainName),]
+factorColList <- list(list(colors=rainbow(length(unique(meta2$StrainName))), factor='StrainName'))
+pdf('spe_48h_strains.pdf')
+h2 <- format_heatmap(tab, meta2, labCol=smotif, factorColList=factorColList, main='Color 1 not Normalized')
+h2 <- format_heatmap(tab, meta2, labCol=smotif, factorColList=factorColList, colorScale = redgreen(75), main='Color 2 not Normalized')
+h2 <- format_heatmap(tab, meta2, labCol=smotif, norm=TRUE, factorColList=factorColList, colorScale = redgreen(75), main='Color 2 Normalized')
+dev.off()
+```
 ## Recover data from heatmap's hierarchical clustering
 
 The heatmap result contains hierarchical clustering from samples and features. We can associate the sample grouping to colors
@@ -92,7 +125,7 @@ head(cbind(t(h$colors), colnames(tab)[grep('Peak area', colnames(tab))])[h$heatm
 Create hclut object from dendrogram and plot the cluters with arbitrary number of groups
 
 ```{r}
-hc <- as.hclust(h$heatmap$colDendrogram)
+hc <- as.hclust(h2$heatmap$colDendrogram)
 plot(hc)
 plot(hc, labels=FALSE)
 rect.hclust(hc, 6)
@@ -102,14 +135,14 @@ Change the criteria to hight and record grouping
 
 ```{r}
 plot(hc, labels=FALSE)
-rect.hclust(hc, h=3000)
-hcgrp <- cutree(hc, h=3000)
+rect.hclust(hc, h=1500)
+hcgrp <- cutree(hc, h=1500)
 ```
 
 Use grouping to create colored bars
 
 ```{r}
-dend <- h$heatmap$colDendrogram
+dend <- h2$heatmap$colDendrogram
 dend %>% plot 
 colored_bars(colors = hcgrp, dend = dend) 
 ```
@@ -154,4 +187,9 @@ ids <- match(tcomp2grp[,5], ulinks[,1])
 tcomp2grp[!is.na(ids), 6] <- ulinks[ids[!is.na(ids)],2]
 head(tcomp2grp)
 
+```
+Save table
+```{r}
+colnames(tcomp2grp)[6] <- 'Link'
+write.table(tcomp2grp, 'component_group_association.tsv', sep='\t', row.names=FALSE)
 ```
