@@ -350,3 +350,143 @@ Save table
 colnames(tcomp2grp)[6] <- 'Link'
 write.table(tcomp2grp, 'component_group_association.tsv', sep='\t', row.names=FALSE)
 ```
+
+In order to localize interesting features in the dendrogram we can need
+first to select the interesting branches. Here we use the reources of
+the source function
+`format_heatmap`.
+
+``` r
+meta2 <- meta[meta$TimePoint=='48h' & grepl('EA', meta$Extraction) & grepl('Burkholderia', meta$StrainName),]
+meta2 <- meta2[grep('cenocepacia', meta2$StrainName),]
+factorColList <- list(list(colors=rainbow(length(unique(meta2$StrainName))), factor='StrainName'))
+pdf('EA_48h_Cenocepacia_strains.pdf')
+h <- format_heatmap(tab, meta2, labCol=smotif, factorColList=factorColList, norm=TRUE, colorScale = redgreen(75))
+dev.off()
+```
+
+    ## png 
+    ##   2
+
+``` r
+exc <- c('BcH14274_EA_48_2_P1-D-2_01_2859.mzXML',  'BcH14274_EA_48_TMP_2_P1-D-6_01_2865.mzXML', 
+         'BcK562_EA_48_2_P1-E-2_01_2803.mzXML', 'BcK562_EA_48_TMP_3_P1-E-6_01_2811.mzXML')
+
+h <- format_heatmap(tab, meta2[!meta2[,1]%in% exc,], labCol=smotif, factorColList=factorColList, norm=TRUE, colorScale = redgreen(75))
+```
+
+![](motif_heatmap_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
+
+``` r
+cdend <- h$heatmap$colDendrogram
+
+colbranches <- function(n, col) {
+  a <- attributes(n) # Find the attributes of current node
+  # Color edges with requested color
+  attr(n, "edgePar") <- c(a$edgePar, list(col=col, lwd=2))
+  n # Don't forget to return the node!
+}
+cdend[[2]][[2]][[2]][[2]][[1]] = dendrapply(cdend[[2]][[2]][[2]][[2]][[1]], colbranches, "blue")
+cdend[[1]] = dendrapply(cdend[[1]], colbranches, "red")
+plot(cdend)
+```
+
+![](motif_heatmap_files/figure-gfm/unnamed-chunk-22-2.png)<!-- -->
+
+``` r
+featureTable=tab; metadataTable=meta2[!meta2[,1]%in% exc,]; labCol=smotif; factorColList=factorColList; norm=TRUE; colorScale = redgreen(75)
+tab2 <- featureTable[, grep('Peak area', colnames(featureTable))]
+tab2 <- t(tab2)
+rownames(tab2) <- sub(' filtered Peak area$| Peak area$', '', rownames(tab2))
+colnames(tab2) <- tab[,'row ID']
+# order samples according to metadata
+tab2 <- tab2[metadataTable[,1],]
+tab2 <- tab2[,apply(tab2, 2, sum)!=0]
+if (norm) {
+  tab2 <- t(apply(tab2, 1, function(x) x/sum(x)))
+}
+if (length(labCol)) {
+  tmp <- rep('', ncol(tab2))
+  mt <- match(labCol[,1], colnames(tab2))
+  if(any(is.na(mt))) {
+  labCol <- labCol[!is.na(mt),]
+  mt <- mt[!is.na(mt)]
+  }
+  tmp[mt] <- labCol[,2]
+  labCol <- tmp
+} else {
+  labCol <- rep('', ncol(tab2))
+}
+colList <- list()
+if (length(factorColList)) {
+  fnames <- c()
+  for(i in 1:length(factorColList)) {
+    colList[[i]] <- factorColList[[i]]$colors
+    names(colList[[i]]) <- unique(metadataTable[, factorColList[[i]]$factor])
+    colList[[i]] <- colList[[i]][metadataTable[, factorColList[[i]]$factor]]
+    fnames <- append(fnames, factorColList[[i]]$factor)
+  }
+  rlab <- do.call(rbind, colList)
+  rownames(rlab) <- fnames
+}
+mydist <- function(c) { dist(c, method="canberra") }
+myclust <- function(c) { hclust(c, method="ward.D") }
+
+# Load source code
+source('../R/heatmap.3.R')
+
+#pdf('EA_48h_Cenocepacia_selected_strains.pdf')
+h <- heatmap.3(tab2, hclustfun=myclust, distfun=mydist, na.rm = TRUE, scale="column", dendrogram="both", margins=c(6,12),
+  Rowv=TRUE, Colv=cdend,  RowSideColors=rlab, symbreaks=FALSE, key=TRUE, symkey=FALSE,
+  density.info="none", trace="none", labCol=labCol, labRow=rownames(tab2), col=colorScale,
+  ColSideColorsSize=7, RowSideColorsSize=2, KeyValueName="Ion intensity")
+```
+
+![](motif_heatmap_files/figure-gfm/unnamed-chunk-22-3.png)<!-- -->
+
+``` r
+#dev.off()
+```
+
+After the selection, we can select the features included in the groups
+of interest and export
+them.
+
+``` r
+url_to_attributes = paste0("http://gnps.ucsd.edu/ProteoSAFe/DownloadResultFile?task=", '60e8f7096e994d5c9717d471445f8bfe', "&block=main&file=clusterinfo_summary/")
+gnps <- read.delim(url_to_attributes)
+
+reddend <- gnps[gnps[,"cluster.index"] %in% labels(cdend[[1]]),]
+reddend <- reddend[,c("cluster.index", "componentindex", "parent.mass", "RTMean", "LibraryID")]
+reddend <- merge(reddend, dlist$ms2lda_nodes[,1:7], by.x='cluster.index', by.y='scans')
+head(reddend)
+```
+
+    ##   cluster.index componentindex parent.mass RTMean
+    ## 1            68             -1    643.1361 5.6006
+    ## 2           933            227    385.2438 2.7638
+    ## 3           934            178    553.3331 3.2187
+    ## 4           935              6    513.2868 5.3283
+    ## 5           937             12    342.2383 3.3149
+    ## 6           938             12    558.3280 4.4267
+    ##                                   LibraryID document
+    ## 1                                 Gestodene       68
+    ## 2                                       N/A      933
+    ## 3                                       N/A      934
+    ## 4                                       N/A      935
+    ## 5 Spectral Match to Ile-Pro-Ile from NIST14      937
+    ## 6                                       N/A      938
+    ##                           motif          probability              overlap
+    ## 1                                                                        
+    ## 2           motif_305,motif_396        0.2524,0.1166        0.8232,0.8322
+    ## 3           motif_374,motif_495        0.1003,0.3616        0.7334,0.7990
+    ## 4           motif_502,motif_472        0.2730,0.5366        0.7724,0.5950
+    ## 5 motif_480,motif_469,motif_295 0.1269,0.4218,0.2670 0.9909,0.4388,0.9854
+    ## 6                     motif_573               0.5319               0.7541
+    ##   precursor.mass retention.time
+    ## 1       643.1361             NA
+    ## 2       385.2438             NA
+    ## 3       553.3331             NA
+    ## 4       513.2868             NA
+    ## 5       342.2383             NA
+    ## 6       558.3280             NA
