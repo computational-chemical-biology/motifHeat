@@ -30,7 +30,7 @@ format_heatmap <- function(featureTable, metadataTable, norm=FALSE, labCol=c(), 
     tab2 <- featureTable[, grep('Peak area', colnames(featureTable))] 
     tab2 <- t(tab2) 
     rownames(tab2) <- sub(' filtered Peak area$| Peak area$', '', rownames(tab2)) 
-    colnames(tab2) <- tab[,'row ID']  
+    colnames(tab2) <- featureTable[,'row ID']  
     # order samples according to metadata
     tab2 <- tab2[meta2[,1],] 
     tab2 <- tab2[,apply(tab2, 2, sum)!=0]
